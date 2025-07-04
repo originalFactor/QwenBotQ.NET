@@ -2,14 +2,13 @@ using QwenBotQ.NET.OneBot.Models;
 
 namespace QwenBotQ.NET.OneBot.Core
 {
-    internal partial class OneBot
+    public partial class OneBot
     {
-        public async Task GetMemberListAsync(long groupId, Func<ApiResponse, Task> callback)
+        public async Task GetMemberListAsync(long groupId, Func<MultiApiResponse<GetGroupMemberInfoData>, Task> callback)
         {
-            await CallAsync<GetGroupMemberListParams>(
+            await CallAsync(
                 "get_group_member_list",
                 new GetGroupMemberListParams { GroupId = groupId },
-                typeof(ApiResponse<List<GetGroupMemberInfoData>>),
                 callback
             );
         }

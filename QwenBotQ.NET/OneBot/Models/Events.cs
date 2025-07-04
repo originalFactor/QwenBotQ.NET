@@ -1,35 +1,31 @@
-﻿using System.Text.Json.Serialization;
+using JsonSubTypes;
+using Newtonsoft.Json;
 
 namespace QwenBotQ.NET.OneBot.Models
 {
-    class BaseEventModel
+    [JsonConverter(typeof(JsonSubtypes), "post_type")]
+    [JsonSubtypes.KnownSubType(typeof(MessageEventModel), "message")]
+    [JsonSubtypes.FallBackSubType(typeof(BaseEventModel))]
+    public class BaseEventModel
     {
         public Core.OneBot? Bot { get; set; }
-        [JsonPropertyName("post_type")]
         public required string PostType { get; set; }
-        [JsonPropertyName("time")]
         public long Time { get; set; }
-        [JsonPropertyName("self_id")]
         public long SelfId { get; set; }
     }
 
-    class MessageEventModel : BaseEventModel
+    [JsonConverter(typeof(JsonSubtypes), "message_type")]
+    [JsonSubtypes.KnownSubType(typeof(GroupMessageEventModel), "group")]
+    [JsonSubtypes.FallBackSubType(typeof(MessageEventModel))]
+    public class MessageEventModel : BaseEventModel
     {
-        [JsonPropertyName("message_type")]
         public required string MessageType { get; init; }
-        [JsonPropertyName("sub_type")]
         public required string SubType { get; init; }
-        [JsonPropertyName("user_id")]
         public long UserId { get; init; }
-        [JsonPropertyName("message_id")]
         public long MessageId { get; init; }
-        [JsonPropertyName("message")]
         public required List<Message> Message { get; init; }
-        [JsonPropertyName("raw_message")]
         public required string RawMessage { get; init; }
-        [JsonPropertyName("font")]
         public int Font { get; init; }
-        [JsonPropertyName("sender")]
         public required SenderModel Sender { get; init; }
 
         public virtual async Task ReplyAsync(List<object> message, bool reply = false)
@@ -59,35 +55,50 @@ namespace QwenBotQ.NET.OneBot.Models
                 reply
             );
         }
+
+        public bool IsToMe()
+        {
+            foreach (var item in Message)
+            {
+                if (item is Message<AtMessageData> msg)
+                {
+                    if (msg.Data.Id == SelfId.ToString())
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        public string ExtractPlainText()
+        {
+            string result = "";
+            foreach(var item in Message)
+            {
+                if(item.Type == "text" && item.Data is TextMessageData data)
+                    result += data.Text;
+            }
+            
+            return result;
+        }
     }
 
-    class SenderModel
+    public class SenderModel
     {
-        [JsonPropertyName("user_id")]
         public long UserId { get; set; }
-        [JsonPropertyName("nickname")]
         public string? Nickname { get; set; }
-        [JsonPropertyName("sex")]
         public string? Sex { get; set; }
-        [JsonPropertyName("age")]
         public int Age { get; set; }
-        [JsonPropertyName("card")]
-        public string? GroupNick { get; set; }
-        [JsonPropertyName("area")]
+        public string? Card { get; set; }
         public string? Area { get; set; }
-        [JsonPropertyName("level")]
         public string? Level { get; set; }
-        [JsonPropertyName("role")]
         public string? Role { get; set; }
-        [JsonPropertyName("title")]
         public string? Title { get; set; }
     }
 
-    class GroupMessageEventModel : MessageEventModel
+    public class GroupMessageEventModel : MessageEventModel
     {
-        [JsonPropertyName("group_id")]
         public long GroupId { get; init; }
-        [JsonPropertyName("anonymous")]
         public Annoymous? Anonymous { get; init; }
 
         public override async Task ReplyAsync(List<object> message, bool reply = false)
@@ -112,13 +123,10 @@ namespace QwenBotQ.NET.OneBot.Models
         }
     }
 
-    class Annoymous
+    public class Annoymous
     {
-        [JsonPropertyName("flag")]
         public required string Flag { get; set; }
-        [JsonPropertyName("id")]
         public long Id { get; set; }
-        [JsonPropertyName("name")]
         public required string Name { get; set; }
     }
 }

@@ -2,14 +2,13 @@
 
 namespace QwenBotQ.NET.OneBot.Core
 {
-    internal partial class OneBot
+    public partial class OneBot
     {
-        public async Task GetStrangerInfoAsync(long userId, Func<ApiResponse, Task> callback)
+        public async Task GetStrangerInfoAsync(long userId, Func<ApiResponse<GetStrangerInfoData>, Task> callback)
         {
-            await CallAsync<GetStrangerInfoParams>(
+            await CallAsync(
                 "get_stranger_info",
                 new GetStrangerInfoParams { UserId = userId },
-                typeof(ApiResponse<GetStrangerInfoData>),
                 callback
             );
         }

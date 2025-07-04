@@ -1,55 +1,65 @@
-using Microsoft.Extensions.Logging;
+using QwenBotQ.NET.OneBot.Core;
 using QwenBotQ.NET.OneBot.Models;
-using Core = QwenBotQ.NET.OneBot.Core;
+using Microsoft.Extensions.Logging;
 
-namespace QwenBotQ.NET
+class Program
 {
-    class Program
+    static OneBot ?bot;
+    static ManualResetEvent exitEvent = new(false);
+    static ILoggerFactory loggerFactory = LoggerFactory.Create(builder =>
     {
-        static readonly ManualResetEvent ExitEvent = new ManualResetEvent(false);
-        static readonly ILoggerFactory LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(
-            builder => builder.AddConsole()
+        builder
+            .AddSimpleConsole(options =>
+            {
+                options.IncludeScopes = true;
+                options.TimestampFormat = "HH:mm:ss ";
+            })
+            .SetMinimumLevel(LogLevel.Information);
+    });
+    static ILogger logger = loggerFactory.CreateLogger<Program>();
+    static async Task Main(string[] args)
+    {
+        bot = new OneBot(
+            args.Length > 0 ? args[0] : "ws://127.0.0.1:3001/ws",
+            args.Length > 1 ? args[1] : "napcatqq",
+            loggerFactory
         );
-        static readonly ILogger Logger = LoggerFactory.CreateLogger<Program>();
-        static  Core.OneBot ?_oneBot;
 
-        static async Task Main(string[] args)
+        bot.AddCallback<GroupMessageEventModel>(async (groupMsg) =>
         {
-            _oneBot = new Core.OneBot(
-                uri: args.Length > 0 ? args[0] : "ws://127.0.0.1:3001/ws",
-                // ReSharper disable once StringLiteralTypo
-                token: args.Length > 1 ? args[1] : "napcatqq",
-                loggerFactory: LoggerFactory
+            bool isToMe = groupMsg.IsToMe();
+            logger.LogInformation($"IsToMe: {isToMe}");
+            if (!isToMe) return;
+            await bot.GetGroupMemberInfoAsync(
+                groupMsg.GroupId,
+                groupMsg.UserId,
+                async (resp) =>
+                {
+                    await groupMsg.ReplyAsync(resp.Data.Nickname);
+                }
             );
+        });
 
-            _oneBot.OnEvent += async (eventModel) =>
-            {
-                if (eventModel is GroupMessageEventModel groupMsg)
-                {
-                    if (groupMsg.RawMessage.EndsWith("getCQ"))
-                        await groupMsg.ReplyAsync(groupMsg.RawMessage);
-                }
-                else if (eventModel is MessageEventModel msg)
-                {
-                    if (msg.RawMessage.EndsWith("getCQ"))
-                        await msg.ReplyAsync(msg.RawMessage);
-                }
-            };
+        Console.CancelKeyPress += (sender, e) =>
+        {
+            e.Cancel = true; // Prevent the process from terminating immediately
+            exitEvent.Set(); // Signal the exit event
+        };
 
-            await _oneBot.ConnectAsync();
-
-            Console.CancelKeyPress += (_, e) =>
-            {
-                e.Cancel = true; // Prevent the process from terminating immediately
-                ExitEvent.Set(); // Signal the exit event
-            };
-
-            ExitEvent.WaitOne(); // Wait for the exit event to be set
-
-            await _oneBot.CloseAsync();
-
-            Logger.LogInformation("Exiting application...");
+        try
+        {
+            await bot.ConnectAsync();
+            logger.LogInformation("Bot connected. Press Ctrl+C to exit.");
+            exitEvent.WaitOne(); // Wait for the exit event to be set
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"An error occurred: {ex.Message}");
+        }
+        finally
+        {
+            await bot.CloseAsync();
+            logger.LogInformation("Bot disconnected.");
         }
     }
 }
-

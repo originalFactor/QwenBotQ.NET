@@ -3,7 +3,7 @@ using QwenBotQ.NET.OneBot.Models;
 
 namespace QwenBotQ.NET.OneBot.Core
 {
-    internal partial class OneBot
+    public partial class OneBot
     {
         private async Task BuiltinHandler(BaseEventModel model)
         {
@@ -11,13 +11,14 @@ namespace QwenBotQ.NET.OneBot.Core
             {
                 if (model is MessageEventModel msg)
                 {
+                    string from = "private";
                     if (model is GroupMessageEventModel group)
-                        _logger.LogInformation($"From {group.GroupId}:");
-                    _logger.LogInformation($"{msg.Sender.Nickname} ({msg.UserId}): {msg.RawMessage}");
+                        from = group.GroupId.ToString();
+                    _logger.LogInformation($"{msg.Sender.Nickname} ({msg.UserId} from {from}): {msg.RawMessage}");
                 }
                 else
                 {
-                    _logger.LogInformation($"Received event of type {model.GetType().Name} at {model.Time}");
+                    _logger.LogInformation($"Received event of type {model.PostType} at {model.Time}");
                 }
             });
         }

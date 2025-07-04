@@ -2,7 +2,7 @@
 
 namespace QwenBotQ.NET.OneBot.Core
 {
-    internal partial class OneBot
+    public partial class OneBot
     {
         public async Task ConnectAsync()
         {

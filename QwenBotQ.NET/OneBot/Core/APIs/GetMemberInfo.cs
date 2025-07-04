@@ -2,17 +2,16 @@
 
 namespace QwenBotQ.NET.OneBot.Core
 {
-    internal partial class OneBot
+    public partial class OneBot
     {
         public async Task GetGroupMemberInfoAsync(
             long groupId,
             long userId,
-            Func<ApiResponse, Task> callback)
+            Func<ApiResponse<GetGroupMemberInfoData>, Task> callback)
         {
-            await CallAsync<GetGroupMemberInfoParams>(
+            await CallAsync(
                 "get_group_member_info",
                 new GetGroupMemberInfoParams { GroupId = groupId, UserId = userId },
-                typeof(ApiResponse<GetGroupMemberInfoData>),
                 callback
             );
         }

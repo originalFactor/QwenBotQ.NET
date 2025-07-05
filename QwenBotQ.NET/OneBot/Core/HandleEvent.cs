@@ -5,29 +5,28 @@ using JsonSubTypes;
 using Microsoft.Extensions.Logging;
 using System;
 
-namespace QwenBotQ.NET.OneBot.Core
+namespace QwenBotQ.NET.OneBot.Core;
+
+public partial class OneBot
 {
-    public partial class OneBot
+    private async Task HandleEvent(string data)
     {
-        private async Task HandleEvent(string data)
+        _logger.LogDebug($"Received event data: {data}");
+        try
         {
-            _logger.LogDebug($"Received event data: {data}");
-            try
+            var eventModel = JsonConvert.DeserializeObject<BaseEventModel>(data);
+            _logger.LogDebug($"Deserialized event type: {eventModel?.GetType().Name}, PostType: {eventModel?.PostType}");
+            
+            if(eventModel!=null)
             {
-                var eventModel = JsonConvert.DeserializeObject<BaseEventModel>(data);
-                _logger.LogDebug($"Deserialized event type: {eventModel?.GetType().Name}, PostType: {eventModel?.PostType}");
-                
-                if(eventModel!=null)
-                {
-                    eventModel.Bot = this;
-                    await OnEvent.Invoke(eventModel);
-                }
+                eventModel.Bot = this;
+                await OnEvent.Invoke(eventModel);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error deserializing event: {ex.Message}");
-                _logger.LogError($"Event data: {data}");
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error deserializing event: {ex.Message}");
+            _logger.LogError($"Event data: {data}");
         }
     }
 }

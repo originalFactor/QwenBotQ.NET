@@ -2,7 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QwenBotQ.SDK.Commands;
 using QwenBotQ.SDK.Core;
-using QwenBotQ.SDK.Services;
+using QwenBotQ.SDK.OneBotS;
+using QwenBotQ.SDK.DatabaseS;
 
 namespace QwenBotQ.SDK.Extensions;
 
@@ -22,7 +23,7 @@ public static class ServiceCollectionExtensions
         
         // 注册核心服务
         services.AddSingleton<CommandManager>();
-        services.AddSingleton<IBotSDK, BotSDK>();
+        services.AddSingleton<Bot>();
         
         // 注册日志（如果未注册）
         if (!services.Any(x => x.ServiceType == typeof(ILoggerFactory)))
@@ -40,18 +41,18 @@ public static class ServiceCollectionExtensions
     /// 添加OneBot服务实现
     /// </summary>
     public static IServiceCollection AddOneBotService<T>(this IServiceCollection services)
-        where T : class, IOneBotService
+        where T : OneBot
     {
-        services.AddSingleton<IOneBotService>(provider =>
+        services.AddSingleton<OneBot>(provider =>
         {
             var options = provider.GetRequiredService<BotSDKOptions>();
             var logger = provider.GetRequiredService<ILogger<T>>();
             
             // 使用反射创建实例，传递必要的参数
-            if (typeof(T) == typeof(OneBotService))
+            if (typeof(T) == typeof(OneBotS.OneBot))
             {
-                return new OneBotService(options.OneBotServerUrl, options.OneBotToken, 
-                    provider.GetRequiredService<ILogger<OneBotService>>()) as T ?? throw new InvalidOperationException();
+                return new OneBotS.OneBot(options.OneBotServerUrl, options.OneBotToken,
+                    provider.GetRequiredService<ILogger<OneBotS.OneBot>>()) as T ?? throw new InvalidOperationException();
             }
             
             // 对于其他实现，尝试使用默认构造函数
@@ -64,18 +65,18 @@ public static class ServiceCollectionExtensions
     /// 添加数据库服务实现
     /// </summary>
     public static IServiceCollection AddDatabaseService<T>(this IServiceCollection services)
-        where T : class, IDatabaseService
+        where T : Database
     {
-        services.AddSingleton<IDatabaseService>(provider =>
+        services.AddSingleton<Database>(provider =>
         {
             var options = provider.GetRequiredService<BotSDKOptions>();
             var logger = provider.GetRequiredService<ILogger<T>>();
             
             // 使用反射创建实例，传递必要的参数
-            if (typeof(T) == typeof(DatabaseService))
+            if (typeof(T) == typeof(DatabaseS.Database))
             {
-                return new DatabaseService(options.MongoConnectionString, options.DatabaseName, 
-                    provider.GetRequiredService<ILogger<DatabaseService>>()) as T ?? throw new InvalidOperationException();
+                return new DatabaseS.Database(options.MongoConnectionString, options.DatabaseName,
+                    provider.GetRequiredService<ILogger<DatabaseS.Database>>()) as T ?? throw new InvalidOperationException();
             }
             
             // 对于其他实现，尝试使用默认构造函数

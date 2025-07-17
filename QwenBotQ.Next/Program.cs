@@ -1,12 +1,14 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QwenBotQ.Commands;
 using QwenBotQ.SDK.Core;
 using QwenBotQ.SDK.Extensions;
-using QwenBotQ.SDK.Services;
+using QwenBotQ.SDK.OneBotS;
+using QwenBotQ.SDK.DatabaseS;
 using System.Reflection;
+using QwenBotQ.SDK.Models.OneBot.Events;
+using Microsoft.Extensions.Configuration;
 
 namespace QwenBotQ.Next;
 
@@ -25,7 +27,15 @@ class Program
         });
 
         // 从配置文件读取设置
+        //builder.Configuration.Sources.Clear();
+        //builder.Configuration.SetBasePath(AppContext.BaseDirectory);
+        //builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
         var botSettings = builder.Configuration.GetSection("BotSettings");
+
+        //Console.WriteLine($"OneBotServerUrl: {botSettings["OneBotServerUrl"]}");
+        //Console.WriteLine($"OneBotToken: {botSettings["OneBotToken"]}");
+        //Console.WriteLine($"MongoConnectionString: {botSettings["MongoConnectionString"]}");
+        //Console.WriteLine($"DatabaseName: {botSettings["DatabaseName"]}");
 
         // 添加QwenBot SDK
         builder.Services.AddQwenBotSDK(options =>
@@ -47,8 +57,8 @@ class Program
         });
 
         // 注册OneBot和Database服务的具体实现
-        builder.Services.AddOneBotService<OneBotService>();
-        builder.Services.AddDatabaseService<DatabaseService>();
+        builder.Services.AddOneBotService<OneBot>();
+        builder.Services.AddDatabaseService<Database>();
 
         // 添加后台服务
         builder.Services.AddHostedService<BotHostedService>();
@@ -61,10 +71,10 @@ class Program
 
 public class BotHostedService : BackgroundService
 {
-    private readonly IBotSDK _botSDK;
+    private readonly Bot _botSDK;
     private readonly ILogger<BotHostedService> _logger;
     
-    public BotHostedService(IBotSDK botSDK, ILogger<BotHostedService> logger)
+    public BotHostedService(Bot botSDK, ILogger<BotHostedService> logger)
     {
         _botSDK = botSDK;
         _logger = logger;
@@ -74,7 +84,7 @@ public class BotHostedService : BackgroundService
     {
         try
         {
-            _logger.LogInformation("Starting QwenBot Demo...");
+            _logger.LogInformation("Starting QwenBotQ.Next...");
             
             // 自动发现并注册Commands程序集中的所有命令
             _botSDK.CommandManagerService.DiscoverCommands(Assembly.GetAssembly(typeof(UserInfoCommand))!);
@@ -83,22 +93,17 @@ public class BotHostedService : BackgroundService
             // _botSDK.RegisterCommand<UserInfoCommand>();
             
             // 注册事件处理器（可选）
-            _botSDK.OnMessage += (context) =>
+            _botSDK.OneBotService.RegisterEventHandler<MessageEvent>((context) =>
             {
-                _logger.LogInformation($"Received message from {context.UserId}: {context.GetPlainText()}");
+                var g = context is GroupMessageEvent e ? e.GroupId.ToString() : "private";
+                _logger.LogInformation($"[{g}] {context.Sender.Nickname}({context.UserId}): {context.RawMessage}");
                 return Task.CompletedTask;
-            };
-            
-            _botSDK.OnGroupMessage += (context) =>
-            {
-                _logger.LogInformation($"Received group message from {context.UserId} in group {context.GroupId}: {context.GetPlainText()}");
-                return Task.CompletedTask;
-            };
+            });
             
             // 启动Bot SDK
             await _botSDK.StartAsync();
             
-            _logger.LogInformation("QwenBot Demo started successfully. Press Ctrl+C to stop.");
+            _logger.LogInformation("QwenBotQ.Next started successfully. Press Ctrl+C to stop.");
             
             // 等待取消信号
             await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -114,7 +119,7 @@ public class BotHostedService : BackgroundService
         finally
         {
             await _botSDK.StopAsync();
-            _logger.LogInformation("QwenBot Demo stopped.");
+            _logger.LogInformation("QwenBotQ.NET stopped.");
         }
     }
 }

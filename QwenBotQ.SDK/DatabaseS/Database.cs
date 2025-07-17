@@ -2,17 +2,17 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
-using QwenBotQ.SDK.Models;
+using QwenBotQ.SDK.Models.Database;
 using System.Text;
 
-namespace QwenBotQ.SDK.Services;
+namespace QwenBotQ.SDK.DatabaseS;
 
-public class DatabaseService : IDatabaseService
+public class Database
 {
     private readonly IMongoCollection<UserModel> _userCollection;
-    private readonly ILogger<DatabaseService> _logger;
+    private readonly ILogger<Database> _logger;
     
-    public DatabaseService(string connectionString, string databaseName, ILogger<DatabaseService> logger)
+    public Database(string connectionString, string databaseName, ILogger<Database> logger)
     {
         _logger = logger;
         
@@ -79,6 +79,85 @@ public class DatabaseService : IDatabaseService
             _logger.LogError(ex, $"Error saving user {user.Id}");
             throw;
         }
+    }
+
+    public async Task<UserModel> GetUserOrCreateAsync(string userId, string nickname)
+    {
+        try
+        {
+            var user = await GetUserAsync(userId);
+            if (user == null)
+            {
+                user = new UserModel
+                {
+                    Id = userId,
+                    Nick = nickname
+                };
+                await SaveUserAsync(user);
+                _logger.LogInformation($"Created new user {user.Id} with nickname {user.Nick}");
+            }
+            else if (user.Nick != nickname)
+            {
+                user.Nick = nickname;
+                await SaveUserAsync(user);
+                _logger.LogInformation($"Updated user {user.Id} with new nickname {user.Nick}");
+            }
+            return user;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error getting or creating user {userId}");
+            throw;
+        }
+    }
+
+    // Get multiple users by customized conditions, orders, and limits.
+    public async Task<List<UserModel>> GetUsersAsync(
+        FilterDefinition<UserModel>? filter = null,
+        SortDefinition<UserModel>? sort = null,
+        int? limit = null)
+    {
+        try
+        {
+            var query = _userCollection.Find(filter);
+            if (sort != null)
+            {
+                query = query.Sort(sort);
+            }
+            if (limit.HasValue)
+            {
+                query = query.Limit(limit.Value);
+            }
+            var users = await query.ToListAsync();
+            
+            _logger.LogDebug($"Retrieved {users.Count} users with specified conditions");
+            return users;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving users with specified conditions");
+            throw;
+        }
+    }
+
+    public async Task<DateTime> BindUserAsync(UserModel user1, UserModel user2)
+    {
+        var expire = DateTime.Today.AddDays(1);
+
+        user1.Binded = new BindedModel
+        {
+            Ident = user2.Id,
+            Expire = expire
+        };
+        user1.Binded = new BindedModel
+        {
+            Ident = user2.Id,
+            Expire = expire
+        };
+
+        await SaveUserAsync(user1);
+        await SaveUserAsync(user2);
+        return expire;
     }
 }
 

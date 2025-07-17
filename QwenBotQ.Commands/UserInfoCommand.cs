@@ -1,18 +1,20 @@
 using Microsoft.Extensions.Logging;
 using QwenBotQ.SDK.Commands;
 using QwenBotQ.SDK.Core;
-using QwenBotQ.SDK.Events;
-using QwenBotQ.SDK.Models;
+using QwenBotQ.SDK.Context;
+using QwenBotQ.SDK.Models.Database;
+using QwenBotQ.SDK.Messages;
+using QwenBotQ.SDK.Extensions;
 
 namespace QwenBotQ.Commands;
 
 [Command("用户信息", "获取用户的详细信息", "用户信息", "userinfo")]
-public class UserInfoCommand : BaseCommand
+public class UserInfoCommand : Command
 {
-    private readonly IBotSDK _botSDK;
+    private readonly Bot _botSDK;
     private readonly ILogger<UserInfoCommand> _logger;
     
-    public UserInfoCommand(IBotSDK botSDK, ILogger<UserInfoCommand> logger)
+    public UserInfoCommand(Bot botSDK, ILogger<UserInfoCommand> logger)
     {
         _botSDK = botSDK;
         _logger = logger;
@@ -20,15 +22,16 @@ public class UserInfoCommand : BaseCommand
     
     public override async Task ExecuteAsync(MessageContext context)
     {
+        var group = context is GroupMessageContext c ? c : null;
         try
         {
             // 获取@的用户或当前用户
-            var mentionedUsers = context.GetMentionedUsers();
-            var targetUserId = mentionedUsers.FirstOrDefault();
+            var mentionedUsers =  group?.Event?.Message.GetMentionedArray();
+            var targetUserId = Convert.ToInt64(mentionedUsers?.FirstOrDefault());
             
             if (targetUserId == 0)
             {
-                targetUserId = context.UserId;
+                targetUserId = context.Event?.UserId ?? 0;
             }
             
             // 从数据库获取用户信息
@@ -38,21 +41,14 @@ public class UserInfoCommand : BaseCommand
             string userInfoText = FormatUserInfo(user);
             
             // 回复消息
-            if (context.ReplyAsync != null)
-            {
-                await context.ReplyAsync(userInfoText, true);
-            }
+            await context.Quick(new Message(userInfoText));
             
             _logger.LogInformation($"Displayed user info for user {targetUserId}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing UserInfo command");
-            
-            if (context.ReplyAsync != null)
-            {
-                await context.ReplyAsync("获取用户信息时发生错误，请稍后重试。", true);
-            }
+            await context.Quick(new Message("获取用户信息时发生错误，请稍后重试。"));
         }
     }
     
@@ -60,25 +56,28 @@ public class UserInfoCommand : BaseCommand
     {
         if (user == null)
         {
-            return "用户信息不存在，可能是新用户。";
+            return "喵喵还找不到你诶，发送签到注册一下吧~";
         }
         
         return $"""
-        用户信息：
-        昵称: {user.Nick ?? "未知"}
-        QQ号: {user.Id ?? "未知"}
-        权限: {user.Permission}
-        系统提示: {user.SystemPrompt?[..Math.Min(user.SystemPrompt?.Length ?? 0, 15)] ?? "未知"}
+        喵喵还记得主人的信息呢~
+
+        ——基本信息——
+        昵称: {user.Nick}
+        QQ号: {user.Id}
+        权限等级: {user.Permission}
+        积分: {user.Coins}
+        本日已签: {(user.SignExpire > DateTime.Now ? "✅" : "❌")}
+
+        ——AI相关——
+        模型: {user.model ?? "未知"}
+        系统提示词: {user.SystemPrompt[..Math.Min(user.SystemPrompt.Length, 20)]}
         温度: {user.Temprature}
         频率惩罚: {user.FrequencyPenalty}
         重复惩罚: {user.PresencePenalty}
-        硬币: {user.Coins}
-        签到过期: {user.SignExpire.ToLongDateString()}
-        模型: {user.model ?? "未知"}
-        个人资料过期: {user.ProfileExpire.ToLongDateString()}
-        绑定权重: {Math.Round(user.BindPower, 2)}
-        绑定QQ号: {user.Binded?.Ident ?? "无"}
-        绑定过期: {user.Binded?.Expire.ToLongDateString() ?? "无"}
+        
+        ——关系系统——
+        稀有度: {Math.Round(user.BindPower*100, 2)}%
         """;
     }
 }

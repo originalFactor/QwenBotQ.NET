@@ -1,6 +1,6 @@
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace QwenBotQ.SDK.Models;
+namespace QwenBotQ.SDK.Models.Database;
 
 public class UserModel
 {

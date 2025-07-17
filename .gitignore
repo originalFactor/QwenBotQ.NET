@@ -1,14 +1,6 @@
 # Private configuration
 appsettings.json
 
-# AI-Generated suggestions
-CODE_QUALITY_SUGGESTIONS.md
-CONFIG_TROUBLESHOOTING.md
-QUICK_START.md
-README_REFACTORED.md
-SNAKE_CASE_CONVENTION.md
-WEBSOCKET_OPTIMIZATION.md
-
 # Old project
 QwenBotQ.NET
 
